@@ -7,8 +7,8 @@
     
     <!-- NuGet Package Information -->
     <Version>1.0.0</Version>
-    <Authors>Your Name</Authors>
-    <Company>Your Company</Company>
+    <Authors>Li Wei</Authors>
+    <Company>Li Wei</Company>
     <Description>A library for defining and registering API endpoints in ASP.NET Core applications</Description>
     <PackageTags>aspnetcore;endpoints;api;minimal-api</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
