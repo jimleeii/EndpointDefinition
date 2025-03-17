@@ -56,7 +56,7 @@ jobs:
             VERSION=$(grep -oP '(?<=<VersionPrefix>).*(?=</VersionPrefix>)' ${{ env.PROJECT_PATH }})
           fi
           echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "::set-output name=version::$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
         shell: bash
 
       - name: Check if Version Already Exists
