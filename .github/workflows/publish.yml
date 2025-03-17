@@ -1,0 +1,94 @@
+name: Build & Publish NuGet Package
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/EndpointDefinition.csproj'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'src/EndpointDefinition.csproj'
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: 'src/EndpointDefinition.csproj'
+  PACKAGE_OUTPUT_DIRECTORY: ${{ github.workspace }}/output
+  NUGET_SOURCE_URL: 'https://api.nuget.org/v3/index.json'
+
+jobs:
+  build-test-pack-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore Dependencies
+        run: dotnet restore
+      
+      - name: Build Project
+        run: dotnet build --configuration Release --no-restore
+      
+      # Uncomment if you add tests to your project
+      # - name: Run Tests
+      #   run: dotnet test --no-restore --verbosity normal
+      
+      - name: Extract Package Version
+        id: package_version
+        run: |
+          VERSION=$(grep -oP '(?<=<Version>).*(?=</Version>)' ${{ env.PROJECT_PATH }})
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -oP '(?<=<PackageVersion>).*(?=</PackageVersion>)' ${{ env.PROJECT_PATH }})
+          fi
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -oP '(?<=<VersionPrefix>).*(?=</VersionPrefix>)' ${{ env.PROJECT_PATH }})
+          fi
+          echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=version::$VERSION"
+        shell: bash
+
+      - name: Check if Version Already Exists
+        id: check_version
+        run: |
+          PACKAGE_NAME="EndpointDefinition"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.nuget.org/v3-flatcontainer/$PACKAGE_NAME/${{ env.PACKAGE_VERSION }}/index.json)
+          if [ "$HTTP_STATUS" == "200" ]; then
+            echo "VERSION_EXISTS=true" >> $GITHUB_ENV
+          else 
+            echo "VERSION_EXISTS=false" >> $GITHUB_ENV
+          fi
+        shell: bash
+
+      - name: Pack NuGet Package
+        if: ${{ env.VERSION_EXISTS == 'false' }}
+        run: |
+          mkdir -p ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
+          dotnet pack ${{ env.PROJECT_PATH }} \
+            --configuration Release \
+            --output ${{ env.PACKAGE_OUTPUT_DIRECTORY }} \
+            --no-build
+
+      - name: Publish NuGet Package
+        if: ${{ github.event_name != 'pull_request' && env.VERSION_EXISTS == 'false' }}
+        run: |
+          dotnet nuget push ${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg \
+            --source ${{ env.NUGET_SOURCE_URL }} \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --skip-duplicate
+
+      - name: Create GitHub Release
+        if: ${{ github.event_name != 'pull_request' && env.VERSION_EXISTS == 'false' }}
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.PACKAGE_VERSION }}
+          release_name: Release v${{ env.PACKAGE_VERSION }}
+          draft: false
+          prerelease: false
