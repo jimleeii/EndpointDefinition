@@ -6,7 +6,7 @@
     <OutputType>Library</OutputType>
     
     <!-- NuGet Package Information -->
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Li Wei</Authors>
     <Company>Li Wei</Company>
     <Description>A library for defining and registering API endpoints in ASP.NET Core applications</Description>
@@ -24,6 +24,7 @@
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
   
   <!-- Include README.md and icon.png in the package -->
