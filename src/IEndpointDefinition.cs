@@ -15,6 +15,6 @@ public interface IEndpointDefinition
     /// Defines endpoints for the web application.
     /// </summary>
     /// <param name="app">The web application instance.</param>
-    /// <param name="evnt">The hosting environment.</param>
-    void DefineEndpoints(WebApplication app, IWebHostEnvironment evnt);
+    /// <param name="env">The hosting environment.</param>
+    void DefineEndpoints(WebApplication app, IWebHostEnvironment env);
 }

@@ -60,11 +60,11 @@ public static class EndpointDefinitionExtensions
     /// Use endpoint definitions.
     /// </summary>
     /// <param name="app">The app.</param>
-    /// <param name="evnt">The environment.</param>
-    public static void UseEndpointDefinitions(this WebApplication app, IWebHostEnvironment evnt)
+    /// <param name="env">The environment.</param>
+    public static void UseEndpointDefinitions(this WebApplication app, IWebHostEnvironment env)
     {
         ArgumentNullException.ThrowIfNull(app);
-        ArgumentNullException.ThrowIfNull(evnt);
+        ArgumentNullException.ThrowIfNull(env);
 
         if (app.Services.GetService(typeof(IReadOnlyCollection<IEndpointDefinition>)) is not IReadOnlyCollection<IEndpointDefinition> definitions)
         {
@@ -75,7 +75,7 @@ public static class EndpointDefinitionExtensions
         {
             try
             {
-                endpointDefinition.DefineEndpoints(app, evnt);
+                endpointDefinition.DefineEndpoints(app, env);
             }
             catch (Exception ex)
             {
