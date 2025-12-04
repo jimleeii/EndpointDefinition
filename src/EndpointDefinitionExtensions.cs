@@ -12,6 +12,10 @@ public static class EndpointDefinitionExtensions
     /// <param name="scanMarkers">One or more types whose assemblies will be scanned for <see cref="IEndpointDefinition"/> implementations.</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="scanMarkers"/> is null or empty.</exception>
     /// <exception cref="InvalidOperationException">Thrown when an endpoint definition cannot be instantiated.</exception>
+    /// <remarks>
+    /// Endpoint definitions can use constructor injection to receive dependencies. Dependencies will be resolved
+    /// from a temporary service provider built from the current service collection state.
+    /// </remarks>
     public static void AddEndpointDefinitions(this IServiceCollection services, params Type[] scanMarkers)
     {
         if (scanMarkers == null || scanMarkers.Length == 0)
@@ -31,20 +35,23 @@ public static class EndpointDefinitionExtensions
             return;
         }
 
-        // Instantiate endpoint definitions directly and call DefineServices
+        // Build a temporary service provider to support constructor injection for endpoint definitions
+        using var serviceProvider = services.BuildServiceProvider();
+
+        // Instantiate endpoint definitions using ActivatorUtilities to support constructor injection
         var endpointDefinitions = new List<IEndpointDefinition>(endpointDefinitionTypes.Count);
 
         foreach (var type in endpointDefinitionTypes)
         {
             try
             {
-                // Use Activator.CreateInstance for types with parameterless constructors
-                var instance = (IEndpointDefinition)Activator.CreateInstance(type)!;
+                // Use ActivatorUtilities to support both parameterless constructors and constructor injection
+                var instance = (IEndpointDefinition)ActivatorUtilities.CreateInstance(serviceProvider, type);
                 endpointDefinitions.Add(instance);
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Failed to create an instance of {type.FullName}. Ensure the type has a public parameterless constructor.", ex);
+                throw new InvalidOperationException($"Failed to create an instance of {type.FullName}. Ensure the type has a public constructor and all dependencies are registered.", ex);
             }
         }
 

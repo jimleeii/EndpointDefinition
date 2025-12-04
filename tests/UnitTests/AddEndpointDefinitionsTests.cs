@@ -39,6 +39,7 @@ public class AddEndpointDefinitionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging(); // Support constructor injection
 
         // Act
         services.AddEndpointDefinitions(typeof(TestEndpointDefinition));
@@ -56,6 +57,7 @@ public class AddEndpointDefinitionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging(); // Support constructor injection
 
         // Act
         services.AddEndpointDefinitions(typeof(TestEndpointDefinition));
@@ -70,6 +72,7 @@ public class AddEndpointDefinitionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging(); // Support constructor injection
 
         // Act
         services.AddEndpointDefinitions(typeof(TestEndpointDefinition));
@@ -91,6 +94,7 @@ public class AddEndpointDefinitionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging(); // Support constructor injection
 
         // Act
         services.AddEndpointDefinitions(typeof(TestEndpointDefinition));
@@ -106,6 +110,7 @@ public class AddEndpointDefinitionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging(); // Support constructor injection
 
         // Act
         services.AddEndpointDefinitions(
@@ -126,6 +131,7 @@ public class AddEndpointDefinitionsTests
     {
         // Arrange
         var services = new ServiceCollection();
+        services.AddLogging(); // Support constructor injection
 
         // Act - Register the same assembly twice
         services.AddEndpointDefinitions(
@@ -171,4 +177,40 @@ public class AddEndpointDefinitionsTests
         
         definitions.Should().BeNull();
     }
+
+    [Fact]
+    public void AddEndpointDefinitions_ShouldSupportConstructorInjection()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        services.AddLogging(); // Register ILogger for constructor injection
+
+        // Act
+        services.AddEndpointDefinitions(typeof(ConstructorInjectionEndpointDefinition));
+
+        // Assert
+        var serviceProvider = services.BuildServiceProvider();
+        var definitions = serviceProvider.GetService<IReadOnlyCollection<IEndpointDefinition>>();
+        
+        definitions.Should().NotBeNull();
+        var injectedDefinition = definitions!.OfType<ConstructorInjectionEndpointDefinition>().FirstOrDefault();
+        injectedDefinition.Should().NotBeNull();
+        injectedDefinition!.LoggerInjected.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AddEndpointDefinitions_ShouldThrowInvalidOperationException_WhenConstructorDependenciesNotRegistered()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+        // Do NOT register ILogger - this should cause the instantiation to fail
+
+        // Act
+        Action act = () => services.AddEndpointDefinitions(typeof(ConstructorInjectionEndpointDefinition));
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("Failed to create an instance of*ConstructorInjectionEndpointDefinition*");
+    }
 }
+

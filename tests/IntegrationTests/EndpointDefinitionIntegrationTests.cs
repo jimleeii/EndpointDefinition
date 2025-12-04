@@ -142,11 +142,34 @@ public class EndpointDefinitionIntegrationTests : IClassFixture<TestWebApplicati
         // Assert - If service wasn't registered, this would fail
         usersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
+
+    [Fact]
+    public async Task EndpointDefinitionWithConstructorInjection_ShouldWork()
+    {
+        // This test verifies that endpoint definitions can use constructor injection
+        // LoggingEndpoints requires ILogger<LoggingEndpoints> in its constructor
+
+        // Act
+        var response = await _client.GetAsync("/logging/test");
+        var result = await response.Content.ReadFromJsonAsync<LoggingTestResult>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        result.Should().NotBeNull();
+        result!.Message.Should().Be("Logger is working");
+        result.LoggerType.Should().NotBeNullOrEmpty();
+    }
 }
 
-// Helper class for debug endpoint response
+// Helper classes for endpoint responses
 public class DebugInfo
 {
     public string Environment { get; set; } = string.Empty;
     public string ApplicationName { get; set; } = string.Empty;
+}
+
+public class LoggingTestResult
+{
+    public string Message { get; set; } = string.Empty;
+    public string LoggerType { get; set; } = string.Empty;
 }

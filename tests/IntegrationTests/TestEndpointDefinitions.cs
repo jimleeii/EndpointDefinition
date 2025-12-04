@@ -2,6 +2,7 @@ using EndpointDefinition;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace IntegrationTests;
 
@@ -80,6 +81,33 @@ public class DebugEndpoints : IEndpointDefinition
                 ApplicationName = env.ApplicationName
             });
         }
+    }
+}
+
+/// <summary>
+/// Endpoint definition demonstrating constructor injection
+/// </summary>
+public class LoggingEndpoints : IEndpointDefinition
+{
+    private readonly ILogger<LoggingEndpoints> _logger;
+
+    public LoggingEndpoints(ILogger<LoggingEndpoints> logger)
+    {
+        _logger = logger;
+    }
+
+    public void DefineServices(IServiceCollection services)
+    {
+        // No additional services needed
+    }
+
+    public void DefineEndpoints(WebApplication app, IWebHostEnvironment env)
+    {
+        app.MapGet("/logging/test", () => 
+        {
+            _logger.LogInformation("Test endpoint was called");
+            return new { Message = "Logger is working", LoggerType = _logger.GetType().Name };
+        });
     }
 }
 
