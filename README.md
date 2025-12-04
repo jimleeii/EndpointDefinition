@@ -9,10 +9,11 @@ A lightweight library for organizing and registering API endpoints in ASP.NET Co
 ## Features
 
 - **Modular Endpoint Organization**: Define endpoints in separate classes for improved maintainability
+- **Constructor Injection Support**: Endpoint definitions can use constructor injection to receive dependencies
 - **Dependency Injection Support**: Register services specific to each endpoint
 - **Environment-aware Configuration**: Configure endpoints differently based on environment
 - **Automatic Registration**: Easily scan and register all endpoint definitions in your assemblies
-- **Parallel Endpoint Registration**: Improves startup performance for applications with many endpoints
+- **Comprehensive Test Coverage**: 28 tests (18 unit + 10 integration) ensuring reliability
 
 ## Installation
 
@@ -146,6 +147,52 @@ public class AdminEndpoints : IEndpointDefinition
 }
 ```
 
+### Constructor Injection in Endpoint Definitions
+
+Endpoint definitions support constructor injection, allowing you to inject dependencies directly:
+
+```csharp
+public class LoggingEndpoints : IEndpointDefinition
+{
+    private readonly ILogger<LoggingEndpoints> _logger;
+
+    // Constructor injection is supported - dependencies are resolved from the service collection
+    public LoggingEndpoints(ILogger<LoggingEndpoints> logger)
+    {
+        _logger = logger;
+    }
+
+    public void DefineServices(IServiceCollection services)
+    {
+        // Register any additional services needed by endpoints
+    }
+
+    public void DefineEndpoints(WebApplication app, IWebHostEnvironment env)
+    {
+        app.MapGet("/health", () => 
+        {
+            _logger.LogInformation("Health check endpoint called");
+            return Results.Ok(new { Status = "Healthy" });
+        });
+    }
+}
+```
+
+**Note**: Dependencies must be registered before calling `AddEndpointDefinitions()`. Common services like `ILogger<T>` are automatically available when using `WebApplicationBuilder`.
+
+## Testing
+
+The library includes comprehensive test coverage:
+
+- **Unit Tests** (18 tests): Test core functionality including service registration, endpoint discovery, and constructor injection
+- **Integration Tests** (10 tests): Test real HTTP scenarios with a full ASP.NET Core application
+
+Run tests locally:
+
+```bash
+dotnet test
+```
+
 ## Contributing
 
 Contributions are welcome! Here's how you can contribute:
@@ -185,10 +232,13 @@ The workflow will automatically:
 
 This project uses GitHub Actions for continuous integration and deployment. The workflow automatically:
 
-- Builds and tests the project
-- Packs the library into a NuGet package
-- Publishes the package to NuGet.org when the version is updated
-- Creates a GitHub release with the version tag
+- **Builds** the project in Release configuration
+- **Runs all tests** (unit and integration tests) to ensure code quality
+- **Packs** the library into a NuGet package
+- **Publishes** the package to NuGet.org when the version is updated
+- **Creates** a GitHub release with the version tag
+
+The pipeline ensures all tests pass before publishing, maintaining high quality standards.
 
 ## License
 
