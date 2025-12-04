@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/EndpointDefinition.svg)](https://www.nuget.org/packages/EndpointDefinition/)
 [![Build & Publish](https://github.com/jimleeii/EndpointDefinition/actions/workflows/publish.yml/badge.svg)](https://github.com/jimleeii/EndpointDefinition/actions/workflows/publish.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A lightweight library for organizing and registering API endpoints in ASP.NET Core applications using a clean, modular approach.
 
@@ -158,7 +158,28 @@ Contributions are welcome! Here's how you can contribute:
 
 ## Versioning
 
-This project uses [SemVer](http://semver.org/) for versioning. The version is automatically updated in the CI/CD pipeline when changes are made to the project file.
+This project uses [SemVer](http://semver.org/) for versioning. The version is managed in the project file (`src/EndpointDefinition.csproj`).
+
+### Version Bumping
+
+The CI/CD pipeline automatically bumps the version based on commit messages:
+
+- Include `[major]` in your commit message to bump the major version (e.g., 1.0.0 → 2.0.0)
+- Include `[minor]` in your commit message to bump the minor version (e.g., 1.0.0 → 1.1.0)
+- By default, the patch version is bumped (e.g., 1.0.0 → 1.0.1)
+
+Example commit messages:
+```bash
+git commit -m "feat: add new endpoint mapping feature [minor]"
+git commit -m "fix: resolve endpoint registration bug"
+git commit -m "breaking: redesign API interface [major]"
+```
+
+The workflow will automatically:
+1. Detect the version bump type from the commit message
+2. Update the version in the .csproj file
+3. Commit the version change back to the repository
+4. Create a package with the new version
 
 ## CI/CD
 
