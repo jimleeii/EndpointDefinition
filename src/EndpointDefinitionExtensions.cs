@@ -1,15 +1,17 @@
 ﻿namespace EndpointDefinition;
 
 /// <summary>
-/// The endpoint definition extensions.
+/// Extension methods for registering and using endpoint definitions.
 /// </summary>
 public static class EndpointDefinitionExtensions
 {
     /// <summary>
-    /// Add endpoint definitions.
+    /// Adds endpoint definitions to the service collection by scanning assemblies containing the specified marker types.
     /// </summary>
-    /// <param name="services">The services.</param>
-    /// <param name="scanMarkers">The scan markers.</param>
+    /// <param name="services">The service collection to add endpoint definitions to.</param>
+    /// <param name="scanMarkers">One or more types whose assemblies will be scanned for <see cref="IEndpointDefinition"/> implementations.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="scanMarkers"/> is null or empty.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when an endpoint definition cannot be instantiated.</exception>
     public static void AddEndpointDefinitions(this IServiceCollection services, params Type[] scanMarkers)
     {
         if (scanMarkers == null || scanMarkers.Length == 0)
@@ -20,7 +22,8 @@ public static class EndpointDefinitionExtensions
         var endpointDefinitionTypes = scanMarkers
             .SelectMany(marker => marker.Assembly.ExportedTypes
                 .Where(type => typeof(IEndpointDefinition).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract))
-                .ToList();
+            .Distinct()
+            .ToList();
 
         if (endpointDefinitionTypes.Count == 0)
         {
@@ -28,39 +31,40 @@ public static class EndpointDefinitionExtensions
             return;
         }
 
+        // Instantiate endpoint definitions directly and call DefineServices
+        var endpointDefinitions = new List<IEndpointDefinition>(endpointDefinitionTypes.Count);
+
         foreach (var type in endpointDefinitionTypes)
         {
-            services.AddTransient(type);
+            try
+            {
+                // Use Activator.CreateInstance for types with parameterless constructors
+                var instance = (IEndpointDefinition)Activator.CreateInstance(type)!;
+                endpointDefinitions.Add(instance);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Failed to create an instance of {type.FullName}. Ensure the type has a public parameterless constructor.", ex);
+            }
         }
 
-        var serviceProvider = services.BuildServiceProvider();
-        var endpointDefinitions = endpointDefinitionTypes
-            .Select(type =>
-            {
-                try
-                {
-                    return (IEndpointDefinition)serviceProvider.GetRequiredService(type);
-                }
-                catch (Exception ex)
-                {
-                    throw new InvalidOperationException($"Failed to create an instance of {type.FullName}", ex);
-                }
-            })
-            .ToList();
-
+        // Call DefineServices on all endpoint definitions
         foreach (var endpointDefinition in endpointDefinitions)
         {
             endpointDefinition.DefineServices(services);
         }
 
-        services.AddSingleton(endpointDefinitions as IReadOnlyCollection<IEndpointDefinition>);
+        // Register the collection of endpoint definitions as a singleton for later use
+        services.AddSingleton<IReadOnlyCollection<IEndpointDefinition>>(endpointDefinitions);
     }
 
     /// <summary>
-    /// Use endpoint definitions.
+    /// Configures endpoints by calling <see cref="IEndpointDefinition.DefineEndpoints"/> on all registered endpoint definitions.
     /// </summary>
-    /// <param name="app">The app.</param>
-    /// <param name="env">The environment.</param>
+    /// <param name="app">The web application to configure endpoints for.</param>
+    /// <param name="env">The hosting environment.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="app"/> or <paramref name="env"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when an endpoint definition fails to define endpoints.</exception>
     public static void UseEndpointDefinitions(this WebApplication app, IWebHostEnvironment env)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -71,7 +75,9 @@ public static class EndpointDefinitionExtensions
             return;
         }
 
-        Parallel.ForEach(definitions, endpointDefinition =>
+        // Register endpoints sequentially to ensure thread safety
+        // ASP.NET Core endpoint registration methods (MapGet, MapPost, etc.) are not thread-safe
+        foreach (var endpointDefinition in definitions)
         {
             try
             {
@@ -79,8 +85,8 @@ public static class EndpointDefinitionExtensions
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Failed to define endpoints for {endpointDefinition.GetType().FullName}", ex);
+                throw new InvalidOperationException($"Failed to define endpoints for {endpointDefinition.GetType().FullName}.", ex);
             }
-        });
+        }
     }
 }

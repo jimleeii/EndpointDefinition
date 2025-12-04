@@ -41,9 +41,8 @@ jobs:
       - name: Build Project
         run: dotnet build --configuration Release --no-restore
       
-      # Uncomment if you add tests to your project
-      # - name: Run Tests
-      #   run: dotnet test --no-restore --verbosity normal
+      - name: Run Tests
+        run: dotnet test --no-restore --verbosity normal
       
       - name: Get Current Version
         id: current_version
@@ -59,26 +58,29 @@ jobs:
           COMMIT_MESSAGE="${{ github.event.head_commit.message }}"
           if [[ "$COMMIT_MESSAGE" =~ \[major\] ]]; then
             echo "BUMP_TYPE=major" >> $GITHUB_ENV
+            echo "bump_type=major" >> $GITHUB_OUTPUT
           elif [[ "$COMMIT_MESSAGE" =~ \[minor\] ]]; then
             echo "BUMP_TYPE=minor" >> $GITHUB_ENV
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
           else
             echo "BUMP_TYPE=patch" >> $GITHUB_ENV
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
       - name: Bump Version
         id: bump_version
         run: |
-          IFS='.' read -ra VERSION_PARTS <<< "${{ env.CURRENT_VERSION }}"
+          IFS='.' read -ra VERSION_PARTS <<< "${{ steps.current_version.outputs.current_version }}"
           MAJOR=${VERSION_PARTS[0]}
           MINOR=${VERSION_PARTS[1]}
           PATCH=${VERSION_PARTS[2]}
           
-          if [ "${{ env.BUMP_TYPE }}" == "major" ]; then
+          if [ "${{ steps.version_bump.outputs.bump_type }}" == "major" ]; then
             MAJOR=$((MAJOR + 1))
             MINOR=0
             PATCH=0
-          elif [ "${{ env.BUMP_TYPE }}" == "minor" ]; then
+          elif [ "${{ steps.version_bump.outputs.bump_type }}" == "minor" ]; then
             MINOR=$((MINOR + 1))
             PATCH=0
           else
@@ -93,11 +95,11 @@ jobs:
       - name: Update Project File with New Version
         if: ${{ github.event_name != 'pull_request' }}
         run: |
-          sed -i "s|<Version>${{ env.CURRENT_VERSION }}</Version>|<Version>${{ env.NEW_VERSION }}</Version>|g" ${{ env.PROJECT_PATH }}
+          sed -i "s|<Version>${{ steps.current_version.outputs.current_version }}</Version>|<Version>${{ steps.bump_version.outputs.new_version }}</Version>|g" ${{ env.PROJECT_PATH }}
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add ${{ env.PROJECT_PATH }}
-          git diff --staged --quiet || git commit -m "chore: bump version to ${{ env.NEW_VERSION }} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.bump_version.outputs.new_version }} [skip ci]"
         shell: bash
 
       - name: Push Version Update
@@ -111,9 +113,9 @@ jobs:
         id: package_version
         run: |
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            VERSION="${{ env.CURRENT_VERSION }}"
+            VERSION="${{ steps.current_version.outputs.current_version }}"
           else
-            VERSION="${{ env.NEW_VERSION }}"
+            VERSION="${{ steps.bump_version.outputs.new_version }}"
           fi
           echo "PACKAGE_VERSION=$VERSION" >> $GITHUB_ENV
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -123,16 +125,18 @@ jobs:
         id: check_version
         run: |
           PACKAGE_NAME="EndpointDefinition"
-          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.nuget.org/v3-flatcontainer/$PACKAGE_NAME/${{ env.PACKAGE_VERSION }}/index.json)
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.nuget.org/v3-flatcontainer/$PACKAGE_NAME/${{ steps.package_version.outputs.version }}/index.json)
           if [ "$HTTP_STATUS" == "200" ]; then
             echo "VERSION_EXISTS=true" >> $GITHUB_ENV
+            echo "version_exists=true" >> $GITHUB_OUTPUT
           else 
             echo "VERSION_EXISTS=false" >> $GITHUB_ENV
+            echo "version_exists=false" >> $GITHUB_OUTPUT
           fi
         shell: bash
 
       - name: Pack NuGet Package
-        if: ${{ env.VERSION_EXISTS == 'false' }}
+        if: ${{ steps.check_version.outputs.version_exists == 'false' }}
         run: |
           mkdir -p ${{ env.PACKAGE_OUTPUT_DIRECTORY }}
           dotnet pack ${{ env.PROJECT_PATH }} \
@@ -141,7 +145,7 @@ jobs:
             --no-build
 
       - name: Publish NuGet Package
-        if: ${{ github.event_name != 'pull_request' && env.VERSION_EXISTS == 'false' }}
+        if: ${{ github.event_name != 'pull_request' && steps.check_version.outputs.version_exists == 'false' }}
         run: |
           dotnet nuget push ${{ env.PACKAGE_OUTPUT_DIRECTORY }}/*.nupkg \
             --source ${{ env.NUGET_SOURCE_URL }} \
@@ -149,11 +153,11 @@ jobs:
             --skip-duplicate
 
       - name: Create GitHub Release
-        if: ${{ github.event_name != 'pull_request' && env.VERSION_EXISTS == 'false' }}
+        if: ${{ github.event_name != 'pull_request' && steps.check_version.outputs.version_exists == 'false' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.PACKAGE_VERSION }}
-          name: Release v${{ env.PACKAGE_VERSION }}
+          tag_name: v${{ steps.package_version.outputs.version }}
+          name: Release v${{ steps.package_version.outputs.version }}
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
