@@ -7,7 +7,7 @@
     <LangVersion>latest</LangVersion>
     
     <!-- NuGet Package Information -->
-    <Version>1.0.4</Version>
+    <Version>1.0.5</Version>
     <FileVersion>$(Version)</FileVersion>
     <AssemblyVersion>$(Version)</AssemblyVersion>
     <Authors>Li Wei</Authors>
